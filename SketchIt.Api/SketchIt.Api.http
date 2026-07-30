@@ -1,0 +1,6 @@
+@SketchIt.Api_HostAddress = http://localhost:5230
+
+GET {{SketchIt.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
