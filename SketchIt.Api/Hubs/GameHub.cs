@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using SketchIt.Api.Services;
 using System.Collections.Concurrent;
+using System.Drawing;
 
 namespace SketchIt.Api.Hubs;
 
@@ -12,7 +13,6 @@ public class GameHub: Hub
     {
         _roomState = roomState;
     }
-
     public async Task JoinRoom (string roomCode, string displayName)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
@@ -39,6 +39,13 @@ public class GameHub: Hub
 
     public async Task SendDrawSegment (string roomCode, double x1, double y1, double x2, double y2)
     {
+        _roomState.AddToPoints(roomCode, x1, y1, x2, y2);
+
         await Clients.OthersInGroup(roomCode).SendAsync("ReceiveDrawing", x1, y1, x2, y2);
+    }
+
+    public async Task GetEntireDrawing (string roomCode)
+    {
+        await Clients.Caller.SendAsync("ReceiveEntireDrawing", _roomState.GetAllPoints(roomCode));
     }
 }

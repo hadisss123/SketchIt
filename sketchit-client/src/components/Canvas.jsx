@@ -22,6 +22,20 @@ function Canvas(props) {
         var oldX = 0;
         var oldY = 0;
 
+        const handleReceiveEntireDrawing = (points) => {
+            ctx.beginPath();
+            for (let i = 0; i < points.length; i += 2) {
+                const start = points[i];
+                const end = points[i + 1];
+
+                if (!end) break;
+
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+            }
+            ctx.stroke();
+        }
+
         const handleMouseDown = (event) => {
             isDrawing.current = true;
             const { x, y } = getCanvasCoords(event, canvas);
@@ -44,7 +58,6 @@ function Canvas(props) {
                 oldX = x;
                 oldY = y;
             }
-
         }
 
         const handleMouseUp = () => {
@@ -56,27 +69,35 @@ function Canvas(props) {
             isDrawing.current = false;
             ctx.beginPath();
         }
-        if (props.connectionRef.current) {
-            props.connectionRef.current.on("ReceiveDrawing", (x1, y1, x2, y2) => {
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
-            })
+        const handleReceiveDrawing = (x1, y1, x2, y2) => {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
         }
 
         canvas.addEventListener("mousedown", handleMouseDown);
         canvas.addEventListener("mousemove", handleMouseMove);
         canvas.addEventListener("mouseup", handleMouseUp);
         canvas.addEventListener("mouseleave", handleMouseLeave);
+        if (props.connectionRef.current) {
+            props.connectionRef.current.on("ReceiveDrawing", handleReceiveDrawing);
+            props.connectionRef.current.on("ReceiveEntireDrawing", handleReceiveEntireDrawing);
+
+            props.connectionRef.current.invoke("GetEntireDrawing", props.roomCode);
+        }
 
         return () => {
             canvas.removeEventListener("mousedown", handleMouseDown);
             canvas.removeEventListener("mousemove", handleMouseMove);
             canvas.removeEventListener("mouseup", handleMouseUp);
             canvas.removeEventListener("mouseleave", handleMouseLeave);
+            if (props.connectionRef.current) {
+                props.connectionRef.current.off("ReceiveDrawing", handleReceiveDrawing);
+                props.connectionRef.current.off("ReceiveEntireDrawing", handleReceiveEntireDrawing);
+            }
         }
-    }, [props])
+    }, [props.connectionRef, props.roomCode, props.isConnected])
 
 
 

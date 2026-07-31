@@ -6,6 +6,7 @@ function Room({ roomCode, displayName }) {
     const connectionRef = useRef(null);
     const [playerLogs, setPlayerLogs] = useState([]);
     const [allPlayers, setAllPlayers] = useState([]);
+    const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
         let isActive = true;
@@ -29,6 +30,7 @@ function Room({ roomCode, displayName }) {
         connection.start().then(() => {
             if (isActive) {
                 connection.invoke("JoinRoom", roomCode, displayName);
+                setIsConnected(true);
             }
         });
 
@@ -44,7 +46,7 @@ function Room({ roomCode, displayName }) {
 
     return (
         <div>
-            <Canvas connectionRef={connectionRef} roomCode={roomCode} width={600} height={400} />
+            <Canvas connectionRef={connectionRef} roomCode={roomCode} isConnected={isConnected} width={600} height={400} />
             <p>Connected to room {roomCode} as {displayName}</p>
             <ul>
                 <>
