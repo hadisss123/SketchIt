@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { HubConnectionBuilder } from '@microsoft/signalr';
+import Canvas from "./Canvas";
 
 function Room({ roomCode, displayName }) {
     const connectionRef = useRef(null);
@@ -43,6 +44,7 @@ function Room({ roomCode, displayName }) {
 
     return (
         <div>
+            <Canvas width={600} height={400} />
             <p>Connected to room {roomCode} as {displayName}</p>
             <ul>
                 <>
