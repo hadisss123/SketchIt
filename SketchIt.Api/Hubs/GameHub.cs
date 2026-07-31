@@ -37,4 +37,8 @@ public class GameHub: Hub
         await base.OnDisconnectedAsync(exception);
     }
 
+    public async Task SendDrawSegment (string roomCode, double x1, double y1, double x2, double y2)
+    {
+        await Clients.OthersInGroup(roomCode).SendAsync("ReceiveDrawing", x1, y1, x2, y2);
+    }
 }

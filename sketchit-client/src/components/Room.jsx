@@ -44,7 +44,7 @@ function Room({ roomCode, displayName }) {
 
     return (
         <div>
-            <Canvas width={600} height={400} />
+            <Canvas connectionRef={connectionRef} roomCode={roomCode} width={600} height={400} />
             <p>Connected to room {roomCode} as {displayName}</p>
             <ul>
                 <>

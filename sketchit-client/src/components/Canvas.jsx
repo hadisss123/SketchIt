@@ -19,12 +19,16 @@ function Canvas(props) {
         ctx.lineJoin = "round";
         ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        var oldX = 0;
+        var oldY = 0;
 
         const handleMouseDown = (event) => {
             isDrawing.current = true;
             const { x, y } = getCanvasCoords(event, canvas);
             ctx.beginPath();
             ctx.moveTo(x, y);
+            oldX = x;
+            oldY = y;
         }
 
         const handleMouseMove = (event) => {
@@ -32,6 +36,13 @@ function Canvas(props) {
                 const { x, y } = getCanvasCoords(event, canvas);
                 ctx.lineTo(x, y);
                 ctx.stroke();
+
+                if (props.connectionRef.current) {
+                    props.connectionRef.current.invoke("SendDrawSegment", props.roomCode, oldX, oldY, x, y);
+                }
+
+                oldX = x;
+                oldY = y;
             }
 
         }
@@ -45,6 +56,14 @@ function Canvas(props) {
             isDrawing.current = false;
             ctx.beginPath();
         }
+        if (props.connectionRef.current) {
+            props.connectionRef.current.on("ReceiveDrawing", (x1, y1, x2, y2) => {
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            })
+        }
 
         canvas.addEventListener("mousedown", handleMouseDown);
         canvas.addEventListener("mousemove", handleMouseMove);
@@ -57,7 +76,7 @@ function Canvas(props) {
             canvas.removeEventListener("mouseup", handleMouseUp);
             canvas.removeEventListener("mouseleave", handleMouseLeave);
         }
-    }, [])
+    }, [props])
 
 
 
