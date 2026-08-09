@@ -1,15 +1,21 @@
 import { useRef, useState } from 'react'
-import { HubConnectionBuilder } from '@microsoft/signalr';
 import Room from './Room';
 
-function JoinRoom({ onJoinSuccess }) {
+function JoinRoom({ onJoinSuccess, displayName }) {
     const [roomCode, setRoomCode] = useState("");
-    const [displayName, setDisplayName] = useState("");
 
     async function handleJoinRoom() {
+        if (displayName == "") {
+            alert("Please enter a display name before joining the Room!");
+            return;
+        }
+        if (roomCode == "") {
+            alert("Please enter a room code to join a Room!");
+            return;
+        }
 
         try {
-            const res = await fetch(`http://localhost:5230/api/Rooms?Code=${roomCode}`);
+            const res = await fetch(`http://localhost:5230/api/rooms/${roomCode.toUpperCase()}`);
             if (res.status === 404) {
                 alert("Room not found (404)");
                 return;
@@ -20,7 +26,13 @@ function JoinRoom({ onJoinSuccess }) {
                 return;
             }
             else {
-                onJoinSuccess(roomCode, displayName);
+                const json = await res.json();
+                console.log(json);
+                if (json.status == 1) {
+                    alert("Game has already started!")
+                    return;
+                }
+                onJoinSuccess(roomCode.toUpperCase(), displayName, json.host);
             }
         }
         catch (err) {
@@ -34,14 +46,7 @@ function JoinRoom({ onJoinSuccess }) {
                 placeholder='Enter Room Code'
                 value={roomCode}
                 onChange={(event) => {
-                    setRoomCode(event.target.value);
-                }}
-            />
-            <input
-                placeholder='Enter Display Name'
-                value={displayName}
-                onChange={(event) => {
-                    setDisplayName(event.target.value);
+                    setRoomCode(event.target.value.toUpperCase());
                 }}
             />
 

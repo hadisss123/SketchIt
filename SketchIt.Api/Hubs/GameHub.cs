@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using SketchIt.Api.Models;
 using SketchIt.Api.Services;
 using System.Collections.Concurrent;
 using System.Drawing;
@@ -8,10 +9,14 @@ namespace SketchIt.Api.Hubs;
 public class GameHub: Hub
 {
     private readonly RoomState _roomState;
+    private readonly RoomService _roomService;
+    private List<string> reservedRoomCodes = new();
 
-    public GameHub(RoomState roomState)
+    public GameHub(RoomState roomState, RoomService roomService)
     {
         _roomState = roomState;
+        _roomService = roomService;
+        reservedRoomCodes.Add("NAAL");
     }
     public async Task JoinRoom (string roomCode, string displayName)
     {
@@ -21,6 +26,53 @@ public class GameHub: Hub
         await Clients.Group(roomCode).SendAsync("AllPlayers", _roomState.GetPlayers(roomCode));
 
     }
+
+    public async Task StartGame(string roomCode, string displayName)
+    {
+        var host = await _roomService.GetHost(roomCode);
+        if (host == displayName)
+        {
+            await _roomService.ChangeRoomStatus(roomCode, RoomStatus.InProgress);
+
+            var players = _roomState.GetPlayers(roomCode);
+
+            var playersLeft = _roomState.StartGame(roomCode, players);
+            await NewRound(roomCode);
+
+            //_roomState.StartGame(roomCode);
+
+            await Clients.Group(roomCode).SendAsync("GameStarted", playersLeft);
+            await NewPlayerToDraw(roomCode);
+        }
+        
+    }
+
+    public async Task NewRound(string roomCode)
+    {
+        var currentRound = _roomState.NewRound(roomCode);
+        await Clients.Group(roomCode).SendAsync("NewRound", currentRound);
+    }
+
+    public async Task NewPlayerToDraw(string roomCode)
+    {
+        var playersLeft = _roomState.GetPlayersLeftToPlay(roomCode);
+
+        if (playersLeft.Count == 0)
+        {
+            await NewRound(roomCode);
+            playersLeft = _roomState.GetPlayersLeftToPlay(roomCode);
+        }
+        var playerToDraw = playersLeft.First();
+        if (playerToDraw != null)
+        {
+            _roomState.AddToPlayersPlayed(roomCode, playerToDraw);
+            _roomState.RemoveFromPlayersLeftToPlay(roomCode, playerToDraw);
+
+            await Clients.Group(roomCode).SendAsync("NewPlayerToDraw", playerToDraw);
+        }
+        
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var result = _roomState.RemoveFromRoom(Context.ConnectionId);
@@ -28,10 +80,34 @@ public class GameHub: Hub
         {
             var roomCode = result?.roomCode;
             var displayName = result?.displayName;
+            var isRoomEmpty = result?.isRoomEmpty ?? true;
             if (roomCode != null && displayName != null) {
+                var hostName = await _roomService.GetHost(roomCode);
+                var allPlayers = _roomState.GetPlayers(roomCode);
+                var playerToDraw = _roomState.GetPlayersPlayed(roomCode)[_roomState.GetPlayersPlayed(roomCode).Count - 1];
+                if (isRoomEmpty)
+                {
+                    await _roomService.ChangeRoomStatus(roomCode, RoomStatus.Waiting);
+                    if (!reservedRoomCodes.Contains(roomCode))
+                    {
+                        await _roomService.RemoveRoom(roomCode);
+                    }
+                    
+                }
+                else if(displayName == hostName)
+                {
+                    var newHost = await _roomService.HostLeftChangeHost(roomCode, allPlayers);
+                    await Clients.Group(roomCode).SendAsync("HostChanged", newHost);
+                }
+                if(displayName == playerToDraw)
+                {
+                    _roomState.RemoveFromPlayersPlayed(roomCode, playerToDraw);
+                    await NewPlayerToDraw(roomCode);
+                }
                 await Clients.OthersInGroup(roomCode).SendAsync("PlayerLeft", displayName);
-                await Clients.Group(roomCode).SendAsync("AllPlayers", _roomState.GetPlayers(roomCode));
+                await Clients.Group(roomCode).SendAsync("AllPlayers", allPlayers);
             }
+
 
         }
         await base.OnDisconnectedAsync(exception);

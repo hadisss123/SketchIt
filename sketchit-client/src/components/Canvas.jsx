@@ -76,10 +76,13 @@ function Canvas(props) {
             ctx.stroke();
         }
 
-        canvas.addEventListener("mousedown", handleMouseDown);
-        canvas.addEventListener("mousemove", handleMouseMove);
-        canvas.addEventListener("mouseup", handleMouseUp);
-        canvas.addEventListener("mouseleave", handleMouseLeave);
+        if (props.displayName == props.playerToDraw) {
+            canvas.addEventListener("mousedown", handleMouseDown);
+            canvas.addEventListener("mousemove", handleMouseMove);
+            canvas.addEventListener("mouseup", handleMouseUp);
+            canvas.addEventListener("mouseleave", handleMouseLeave);
+        }
+
         if (props.connectionRef.current) {
             props.connectionRef.current.on("ReceiveDrawing", handleReceiveDrawing);
             props.connectionRef.current.on("ReceiveEntireDrawing", handleReceiveEntireDrawing);
@@ -97,7 +100,7 @@ function Canvas(props) {
                 props.connectionRef.current.off("ReceiveEntireDrawing", handleReceiveEntireDrawing);
             }
         }
-    }, [props.connectionRef, props.roomCode, props.isConnected])
+    }, [props.connectionRef, props.roomCode, props.isConnected, props.displayName, props.playerToDraw])
 
 
 

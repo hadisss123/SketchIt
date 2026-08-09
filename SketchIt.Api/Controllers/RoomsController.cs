@@ -15,15 +15,23 @@ public class RoomsController: ControllerBase
     }
 
     [HttpGet("{code}")]
-    public async Task<IActionResult> GetRoom(string Code)
+    public async Task<IActionResult> GetRoom(string code)
     {
-        var room = await _db.Rooms.FirstOrDefaultAsync(r => r.Code == Code);
-
-        return room == null ? NotFound() : Ok(room);
+        var room = await _db.Rooms.FirstOrDefaultAsync(r => r.Code == code);
+        if(room != null)
+        {
+            return Ok(new
+            {
+                code = room.Code,
+                status = room.Status,
+                host = room.Host
+            });
+        }
+        return NotFound();
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateRoom()
+    public async Task<IActionResult> CreateRoom([FromBody] string displayName)
     {
         var alphabet = "abcdefghijklmnopqrstuvwxyz";
         Random random = new Random();
@@ -34,10 +42,10 @@ public class RoomsController: ControllerBase
 
             for (int i = 0; i < 4; i++)
             {
-                tempCode += alphabet[random.Next(0, 25)];
+                tempCode += alphabet[random.Next(0, 26)];
             }
         }
-        while (await _db.Rooms.AnyAsync(r => r.Code == tempCode));
+        while (await _db.Rooms.AnyAsync(r => r.Code == tempCode.ToUpper()));
 
         tempCode = tempCode.ToUpper();
         var room = new Room();
@@ -45,6 +53,7 @@ public class RoomsController: ControllerBase
         room.Code = tempCode;
         room.CreatedAt = DateTime.Now;
         room.Status = RoomStatus.Waiting;
+        room.Host = displayName;
 
         _db.Rooms.Add(room);
         await _db.SaveChangesAsync();

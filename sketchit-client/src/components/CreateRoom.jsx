@@ -1,22 +1,41 @@
 import { useState } from 'react'
 
 
-function CreateRoom() {
+function CreateRoom({ onJoinSuccess, displayName }) {
     const [roomData, setRoomData] = useState(null);
-    function handleCreateRoom() {
-        fetch("http://localhost:5230/api/Rooms", {
-            method: "POST",
-            headers: {
-                Accept: "*/*",
+
+
+    async function handleCreateRoom() {
+        if (displayName == "") {
+            alert("Please enter a display name before creating a Room!");
+            return;
+        }
+
+        try {
+            const res = await fetch("http://localhost:5230/api/rooms", {
+                method: "POST",
+                headers: {
+                    Accept: "*/*",
+                },
+                body: JSON.stringify(displayName)
+            });
+
+            if (!res.ok) {
+                alert("Something went wrong.");
+                return;
             }
-        })
-            .then((res) => res.json())
-            .then((json) => {
-                setRoomData(json);
-                alert("Room " + JSON.stringify(json.code) + " created");
-            }
-            )
-            .catch((err) => console.error(err));
+
+            const json = await res.json();
+
+            setRoomData(json);
+
+            alert("Room " + JSON.stringify(json.code) + " created");
+
+            onJoinSuccess(json.code, displayName);
+        }
+        catch (err) {
+            console.error(err)
+        }
     }
 
     return (

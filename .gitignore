@@ -1,1 +1,33 @@
+# Visual Studio
 .vs/
+*.user
+*.suo
+
+# .NET build output
+**/bin/
+**/obj/
+
+# NuGet
+packages/
+
+# .NET user-specific files
+*.user
+*.rsuser
+
+# Logs
+*.log
+
+# Node
+**/node_modules/
+**/dist/
+**/build/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal

@@ -29,6 +29,7 @@ builder.Services.AddControllers();
 
 builder.Services.AddSignalR();
 
+builder.Services.AddScoped<RoomService>();
 builder.Services.AddSingleton<RoomState>();
 
 var app = builder.Build();

@@ -6,6 +6,8 @@ public class Room
     public string? Code { get; set; }
     public DateTime CreatedAt { get; set; }
     public RoomStatus Status { get; set; }
+
+    public string? Host { get; set; }
 }
 
 public enum RoomStatus

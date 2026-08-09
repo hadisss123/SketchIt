@@ -7,16 +7,34 @@ import Room from './components/Room'
 
 function App() {
   const [joinedRoom, setJoinedRoom] = useState(null);
+  const [displayName, setDisplayName] = useState("");
+  const [hostName, setHostName] = useState("");
 
   return (
     <>
       {
         joinedRoom ? (
-          <Room roomCode={joinedRoom.roomCode} displayName={joinedRoom.displayName} />
+          <Room roomCode={joinedRoom.roomCode} displayName={joinedRoom.displayName} hostName={hostName} setHostName={setHostName} />
         ) : (
           <>
-            <JoinRoom onJoinSuccess={(roomCode, displayName) => setJoinedRoom({ roomCode, displayName })} />
-            <CreateRoom />
+            <input
+              placeholder='Enter Display Name'
+              value={displayName}
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+              }}
+            />
+            <JoinRoom
+              onJoinSuccess={(roomCode, displayName, hostName) => {
+                setJoinedRoom({ roomCode, displayName })
+                setHostName(hostName);
+              }}
+              displayName={displayName}
+            />
+            <CreateRoom
+              onJoinSuccess={(roomCode, displayName) => setJoinedRoom({ roomCode, displayName })}
+              displayName={displayName}
+            />
             <AvailableRooms />
           </>
         )

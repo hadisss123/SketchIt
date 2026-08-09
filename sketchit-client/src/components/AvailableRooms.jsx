@@ -5,7 +5,7 @@ function AvailableRooms() {
 
     useEffect(() => {
         async function loadRooms() {
-            const res = await fetch("http://localhost:5230/api/Rooms")
+            const res = await fetch("http://localhost:5230/api/rooms")
             const json = await res.json();
             setRooms(json);
         }
