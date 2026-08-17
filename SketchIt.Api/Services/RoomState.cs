@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.IdentityModel.Tokens;
 using SketchIt.Api.Models;
 using System.Collections.Concurrent;
@@ -21,12 +22,73 @@ namespace SketchIt.Api.Services
         private readonly ConcurrentDictionary<string, List<DrawPoint>> drawings = new();
 
         private ConcurrentDictionary<string, List<string>> playersPlayed = new();
+
+        private ConcurrentDictionary<string, string> playerPlaying = new();
+
         private ConcurrentDictionary<string, List<string>> playersLeftToPlay = new();
 
         private ConcurrentDictionary<string, int> currentRound = new();
 
+
+        public void ClearDrawing(string roomCode)
+        {
+            lock (drawings)
+            {
+                drawings.TryGetValue(roomCode, out var canvasDrawings);
+                if (canvasDrawings != null)
+                {
+                    canvasDrawings.Clear();
+                }
+            }
+           
+            
+        }
+
+        public (string?, int currentRound) GetAndAdvanceDrawer(string roomCode)
+        {
+            var playersLeft = playersLeftToPlay.GetOrAdd(roomCode, _ => new List<string>());
+            var playersDone = playersPlayed.GetOrAdd(roomCode, _ => new List<string>());
+            
+
+            lock (playersDone)
+            {
+                lock (playersLeft)
+                {
+                    lock (playerPlaying)
+                    {
+                        if (!playerPlaying.ContainsKey(roomCode))
+                        {
+                            playerPlaying.GetOrAdd(roomCode, _ => playersLeft[0]);
+                            playersLeft.RemoveAt(0);
+
+                        }
+                        else
+                        {
+                            playersDone.Add(playerPlaying[roomCode]);
+
+                            if (playersLeft.Count == 0)
+                            {
+                                playersLeft.AddRange(playersDone);
+                                playersDone.Clear();
+                                currentRound.AddOrUpdate(roomCode, 1, (_, round) => round + 1);
+                            }
+                            playerPlaying[roomCode] = playersLeft[0];
+                            playersLeft.RemoveAt(0);
+                        }
+
+
+                        currentRound.TryGetValue(roomCode, out var round);
+                        return (playerPlaying[roomCode], round);
+                    }
+                    
+                }
+            }
+        }
+
         public List<string> StartGame(string roomCode, List<string> players)
         {
+            
+
             var random = new Random();
 
             var shuffledPlayers = players.OrderBy(_ => random.Next()).ToList();
@@ -34,109 +96,26 @@ namespace SketchIt.Api.Services
             var playersLeft = playersLeftToPlay.GetOrAdd(roomCode, _ => new List<string>());
             lock (playersLeft)
             {
+                playersLeft.Clear();
                 playersLeft.AddRange(shuffledPlayers);
             }
 
             return playersLeft;
         }
 
-        public int NewRound(string roomCode)
+
+
+
+        public void ClearRoom(string roomCode)
         {
-            currentRound.AddOrUpdate(roomCode, 1, (_, round) => round + 1);
-            currentRound.TryGetValue(roomCode, out var round);
-
-            if(playersLeftToPlay.TryGetValue(roomCode, out var playersLeft))
-            {
-                lock (playersLeft)
-                {
-                    if (playersPlayed.TryGetValue(roomCode, out var playersDone))
-                    {
-                        lock (playersDone)
-                        {
-                            playersLeft.AddRange(playersDone);
-                            playersDone.Clear();
-                        }
-                    }
-                }
-                
-            }
-
-            return round;
+            playerPlaying.TryRemove(roomCode, out _);
+            playersLeftToPlay.TryRemove(roomCode, out _);
+            playersPlayed.TryRemove(roomCode, out _);
+            roomMapping.TryRemove(roomCode, out _);
+            drawings.TryRemove(roomCode, out _);
+            currentRound.TryRemove(roomCode, out _);
         }
 
-        public int GetCurrentRound(string roomCode)
-        {
-            currentRound.TryGetValue(roomCode, out var round);
-            return round;
-        }
-
-        public void AddToPlayersLeftToPlay(string roomCode, string player)
-        {
-            var players = playersLeftToPlay.GetOrAdd(roomCode, _ => new List<string>());
-            lock (players)
-            {
-                players.Add(player);
-            }
-
-        }
-
-        //public string? GetAndRemoveRandomPlayer(string roomCode)
-        //{
-        //    if(!playersLeftToPlay.TryGetValue(roomCode, out var players))
-        //    {
-        //        return null;
-        //    }
-
-        //    lock (players)
-        //    {
-        //        if (players.Count == 0)
-        //        {
-        //            if (playersPlayed.TryGetValue(roomCode, out var playersDone))
-        //            {
-        //                lock (playersDone)
-        //                {
-        //                    players.AddRange(playersDone);
-        //                    playersDone.Clear();
-        //                }
-        //            }
-        //            currentRound.AddOrUpdate(roomCode, 1, (_, round) => round + 1);
-        //        }
-        //        if (players.Count == 0)
-        //        {
-        //            return null;
-        //        }
-
-        //        var random = new Random();
-        //        var index = random.Next(players.Count);
-
-        //        var player = players[index];
-
-        //        players.RemoveAt(index);
-
-        //        return player;
-        //    }
-        //}
-
-        public void AddToPlayersPlayed(string roomCode, string player)
-        {
-            var players = playersPlayed.GetOrAdd(roomCode, _ => new List<string>());
-            lock (players)
-            {
-                players.Add(player);
-            }
-        }
-
-        public void RemoveFromPlayersLeftToPlay(string roomCode, string player)
-        {
-            if(playersLeftToPlay.TryGetValue(roomCode, out var players))
-            {
-                lock (players)
-                {
-                    players.Remove(player);
-                }
-            }
-            
-        }
 
         public void RemoveFromPlayersPlayed(string roomCode, string player)
         {
@@ -149,19 +128,7 @@ namespace SketchIt.Api.Services
             
         }
 
-        public List<string> GetPlayersLeftToPlay(string roomCode)
-        {
-            if(playersLeftToPlay.TryGetValue(roomCode, out var playersList))
-            {
-                lock (playersList)
-                {
-                    return new List<string>(playersList);
-                }
-                
-            }
-            return new List<string>();
-        }
-
+       
         public List<string> GetPlayersPlayed(string roomCode)
         {
             if (playersPlayed.TryGetValue(roomCode, out var playersList))

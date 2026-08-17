@@ -40,10 +40,10 @@ function Room({ roomCode, displayName, hostName, setHostName }) {
             console.log(playersLeft);
         });
 
-        connection.on("NewPlayerToDraw", (playerToDraw) => {
+        connection.on("NewPlayerToDraw", (playerToDraw, currentRound) => {
             setPlayerToDraw(playerToDraw);
+            setCurrentRound(currentRound);
             console.log(playerToDraw);
-
         });
 
         connection.on("NewRound", (currentRound) => {

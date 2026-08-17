@@ -52,8 +52,8 @@ function Room({ roomCode, displayName }) {
     return (
         <div>
             {
-                roomStatus="Waiting" ? (
-                    <RoomWaiting roomCode={joinedRoom.roomCode}/>
+                roomStatus = "Waiting" ? (
+                    <RoomWaiting roomCode={joinedRoom.roomCode} />
                 )
             }
             <p>Connected to room {roomCode} as {displayName}</p>

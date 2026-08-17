@@ -37,8 +37,6 @@ public class GameHub: Hub
             var players = _roomState.GetPlayers(roomCode);
 
             var playersLeft = _roomState.StartGame(roomCode, players);
-            await NewRound(roomCode);
-
             //_roomState.StartGame(roomCode);
 
             await Clients.Group(roomCode).SendAsync("GameStarted", playersLeft);
@@ -46,32 +44,16 @@ public class GameHub: Hub
         }
         
     }
-
-    public async Task NewRound(string roomCode)
-    {
-        var currentRound = _roomState.NewRound(roomCode);
-        await Clients.Group(roomCode).SendAsync("NewRound", currentRound);
-    }
-
     public async Task NewPlayerToDraw(string roomCode)
     {
-        var playersLeft = _roomState.GetPlayersLeftToPlay(roomCode);
+        var (currentPlayer, round) =  _roomState.GetAndAdvanceDrawer(roomCode);
+        _roomState.ClearDrawing(roomCode);
+        await Clients.Group(roomCode).SendAsync("NewPlayerToDraw", currentPlayer, round);
 
-        if (playersLeft.Count == 0)
-        {
-            await NewRound(roomCode);
-            playersLeft = _roomState.GetPlayersLeftToPlay(roomCode);
-        }
-        var playerToDraw = playersLeft.First();
-        if (playerToDraw != null)
-        {
-            _roomState.AddToPlayersPlayed(roomCode, playerToDraw);
-            _roomState.RemoveFromPlayersLeftToPlay(roomCode, playerToDraw);
-
-            await Clients.Group(roomCode).SendAsync("NewPlayerToDraw", playerToDraw);
-        }
-        
     }
+
+
+
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
@@ -84,9 +66,9 @@ public class GameHub: Hub
             if (roomCode != null && displayName != null) {
                 var hostName = await _roomService.GetHost(roomCode);
                 var allPlayers = _roomState.GetPlayers(roomCode);
-                var playerToDraw = _roomState.GetPlayersPlayed(roomCode)[_roomState.GetPlayersPlayed(roomCode).Count - 1];
                 if (isRoomEmpty)
                 {
+                    _roomState.ClearRoom(roomCode);
                     await _roomService.ChangeRoomStatus(roomCode, RoomStatus.Waiting);
                     if (!reservedRoomCodes.Contains(roomCode))
                     {
@@ -94,16 +76,23 @@ public class GameHub: Hub
                     }
                     
                 }
-                else if(displayName == hostName)
+                else 
                 {
-                    var newHost = await _roomService.HostLeftChangeHost(roomCode, allPlayers);
-                    await Clients.Group(roomCode).SendAsync("HostChanged", newHost);
+                    if (displayName == hostName)
+                    {
+                        var newHost = await _roomService.HostLeftChangeHost(roomCode, allPlayers);
+                        await Clients.Group(roomCode).SendAsync("HostChanged", newHost);
+                    }
+
+                    var playersPlayed = _roomState.GetPlayersPlayed(roomCode);
+                    var playerToDraw = playersPlayed.Last();
+                    if (displayName == playerToDraw)
+                    {
+                        _roomState.RemoveFromPlayersPlayed(roomCode, playerToDraw);
+                        await NewPlayerToDraw(roomCode);
+                    }
                 }
-                if(displayName == playerToDraw)
-                {
-                    _roomState.RemoveFromPlayersPlayed(roomCode, playerToDraw);
-                    await NewPlayerToDraw(roomCode);
-                }
+                
                 await Clients.OthersInGroup(roomCode).SendAsync("PlayerLeft", displayName);
                 await Clients.Group(roomCode).SendAsync("AllPlayers", allPlayers);
             }
