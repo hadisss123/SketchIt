@@ -25,10 +25,68 @@ namespace SketchIt.Api.Services
 
         private ConcurrentDictionary<string, string> playerPlaying = new();
 
+        private ConcurrentDictionary<string, string> currentWord = new();
+
         private ConcurrentDictionary<string, List<string>> playersLeftToPlay = new();
 
         private ConcurrentDictionary<string, int> currentRound = new();
 
+        private readonly string[] wordBank = { "car", "cat", "window", "door", "office", "table" };
+
+
+        public int GetCurrentRound(string roomCode)
+        {
+            currentRound.TryGetValue(roomCode, out var round);
+            return round;
+        }
+
+        public List<string> GetPlayersExceptDrawer(string roomCode)
+        {
+            var allPlayers = GetPlayers(roomCode);
+            var playerDrawing = GetCurrentPlayer(roomCode);
+
+            var allPlayersCopy = new List<string>(allPlayers);
+            allPlayersCopy.Remove(playerDrawing); 
+            return allPlayersCopy;
+        }
+
+        public string GetPlayerFromConnection(string connectionId)
+        {
+            roomMapping.TryGetValue(connectionId, out var player);
+
+            return player.playerName;
+        }
+
+        public string GetCurrentPlayer(string roomCode)
+        {
+            return playerPlaying[roomCode];
+        }
+
+        public string GetChosenWord(string roomCode)
+        {
+            currentWord.TryGetValue(roomCode, out var word);
+            if(word != null)
+            {
+                return word;
+            }
+            return "No Chosen Word";
+        }
+
+        public void SetChosenWord(string roomCode, string chosenWord)
+        {
+            currentWord.AddOrUpdate(roomCode, chosenWord, (_, _) => chosenWord);
+        }
+
+        public string? GetConnectionId(string roomCode, string displayName)
+        {
+            
+                var result = roomMapping.FirstOrDefault(x =>
+                    x.Value.roomCode == roomCode &&
+                    x.Value.playerName == displayName);
+
+                return result.Key;
+            
+        }
 
         public void ClearDrawing(string roomCode)
         {
@@ -40,15 +98,18 @@ namespace SketchIt.Api.Services
                     canvasDrawings.Clear();
                 }
             }
-           
             
         }
 
-        public (string?, int currentRound) GetAndAdvanceDrawer(string roomCode)
+        public (string?, int currentRound, string word1, string word2, string word3) GetAndAdvanceDrawer(string roomCode)
         {
             var playersLeft = playersLeftToPlay.GetOrAdd(roomCode, _ => new List<string>());
             var playersDone = playersPlayed.GetOrAdd(roomCode, _ => new List<string>());
-            
+            if (!currentRound.ContainsKey(roomCode))
+            {
+                currentRound.AddOrUpdate(roomCode, 1, (_, round) => round + 1);
+            }
+
 
             lock (playersDone)
             {
@@ -77,8 +138,21 @@ namespace SketchIt.Api.Services
                         }
 
 
+                        var random = new Random();
+
+                        var word1 = wordBank[random.Next(0, 6)];
+
+                        var word2 = wordBank[random.Next(0, 6)];
+                        while (word2 == word1)
+                            word2 = wordBank[random.Next(0, 6)];
+
+                        var word3 = wordBank[random.Next(0, 6)];
+                        while (word3 == word1 || word3 == word2)
+                            word3 = wordBank[random.Next(0, 6)];
+
+                        
                         currentRound.TryGetValue(roomCode, out var round);
-                        return (playerPlaying[roomCode], round);
+                        return (playerPlaying[roomCode], round, word1, word2, word3);
                     }
                     
                 }
@@ -234,7 +308,7 @@ namespace SketchIt.Api.Services
             {
                 lock (players)
                 {
-                    return new List<string>(players);
+                    return players;
                 }
                 
             }

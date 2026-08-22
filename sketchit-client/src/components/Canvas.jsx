@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 
 function Canvas(props) {
     const canvasRef = useRef(null);
+    const playerDrawing = props.displayName == props.playerToDraw;
     function getCanvasCoords(event, canvas) {
         const rect = canvas.getBoundingClientRect();
         return {
@@ -76,7 +77,7 @@ function Canvas(props) {
             ctx.stroke();
         }
 
-        if (props.displayName == props.playerToDraw) {
+        if (playerDrawing && props.startDrawing) {
             canvas.addEventListener("mousedown", handleMouseDown);
             canvas.addEventListener("mousemove", handleMouseMove);
             canvas.addEventListener("mouseup", handleMouseUp);
@@ -100,7 +101,7 @@ function Canvas(props) {
                 props.connectionRef.current.off("ReceiveEntireDrawing", handleReceiveEntireDrawing);
             }
         }
-    }, [props.connectionRef, props.roomCode, props.isConnected, props.displayName, props.playerToDraw])
+    }, [props.connectionRef, props.roomCode, props.isConnected, props.displayName, props.playerToDraw, playerDrawing, props.startDrawing])
 
 
 

@@ -13,6 +13,11 @@ function Room({ roomCode, displayName, hostName, setHostName }) {
     const [roomStatus, setRoomStatus] = useState("Waiting");
     const [playerToDraw, setPlayerToDraw] = useState("");
     const [currentRound, setCurrentRound] = useState(null);
+    const [wordsToChoose, setWordsToChoose] = useState([]);
+    const [startDrawing, setStartDrawing] = useState(false);
+    const [chosenWord, setChosenWord] = useState("");
+    const [guessedPlayers, setGuessedPlayers] = useState([]);
+    const [chat, setChat] = useState([]);
 
     const isHost = displayName === hostName;
 
@@ -43,7 +48,20 @@ function Room({ roomCode, displayName, hostName, setHostName }) {
         connection.on("NewPlayerToDraw", (playerToDraw, currentRound) => {
             setPlayerToDraw(playerToDraw);
             setCurrentRound(currentRound);
+            setStartDrawing(false);
             console.log(playerToDraw);
+        });
+
+        connection.on("StartDrawing", () => {
+            setStartDrawing(true);
+        });
+
+        connection.on("ChooseWord", (word1, word2, word3) => {
+            setWordsToChoose([word1, word2, word3]);
+        });
+
+        connection.on("ChosenWord", (word) => {
+            setChosenWord(word);
         });
 
         connection.on("NewRound", (currentRound) => {
@@ -54,7 +72,27 @@ function Room({ roomCode, displayName, hostName, setHostName }) {
         connection.on("HostChanged", (host) =>
             setHostName(host)
         );
-
+        connection.on("WordLength", (wordLength) => {
+            setChosenWord(Array(wordLength).fill("_").join(" "));
+        });
+        connection.on("CorrectGuess", (correctWord) => {
+            setChosenWord(correctWord);
+        });
+        connection.on("ReceiveMessage", (guess, player, correctGuess, guessedPlayers) => {
+            setGuessedPlayers(guessedPlayers);
+            setChat((prev) => [...prev, {
+                type: "UserMessage",
+                guess,
+                player,
+                correctGuess
+            }])
+        });
+        connection.on("SystemMessage", (message) => {
+            setChat((prev) => [...prev, {
+                type: "SystemMessage",
+                message
+            }])
+        });
 
         connection.start().then(() => {
             if (isActive) {
@@ -100,6 +138,11 @@ function Room({ roomCode, displayName, hostName, setHostName }) {
                         isHost={isHost}
                         playerToDraw={playerToDraw}
                         currentRound={currentRound}
+                        wordsToChoose={wordsToChoose}
+                        startDrawing={startDrawing}
+                        chosenWord={chosenWord}
+                        guessedPlayers={guessedPlayers}
+                        chat={chat}
                     />
                 ) /*: roomStatus == "Finished" ? (
                     <RoomFinished roomCode={roomCode} displayName={displayName} />

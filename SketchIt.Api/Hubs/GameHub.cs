@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.SignalR;
 using SketchIt.Api.Models;
 using SketchIt.Api.Services;
 using System.Collections.Concurrent;
@@ -9,13 +10,16 @@ namespace SketchIt.Api.Hubs;
 public class GameHub: Hub
 {
     private readonly RoomState _roomState;
+
+    private readonly ScoreState _scoreState;
     private readonly RoomService _roomService;
     private List<string> reservedRoomCodes = new();
 
-    public GameHub(RoomState roomState, RoomService roomService)
+    public GameHub(RoomState roomState, RoomService roomService, ScoreState scoreState)
     {
         _roomState = roomState;
         _roomService = roomService;
+        _scoreState = scoreState;
         reservedRoomCodes.Add("NAAL");
     }
     public async Task JoinRoom (string roomCode, string displayName)
@@ -37,21 +41,91 @@ public class GameHub: Hub
             var players = _roomState.GetPlayers(roomCode);
 
             var playersLeft = _roomState.StartGame(roomCode, players);
-            //_roomState.StartGame(roomCode);
 
             await Clients.Group(roomCode).SendAsync("GameStarted", playersLeft);
             await NewPlayerToDraw(roomCode);
         }
         
     }
-    public async Task NewPlayerToDraw(string roomCode)
+
+    public async Task GuessWord(string roomCode, string guess)
     {
-        var (currentPlayer, round) =  _roomState.GetAndAdvanceDrawer(roomCode);
-        _roomState.ClearDrawing(roomCode);
-        await Clients.Group(roomCode).SendAsync("NewPlayerToDraw", currentPlayer, round);
+        var player = _roomState.GetPlayerFromConnection(Context.ConnectionId);
+        var correctWord = _roomState.GetChosenWord(roomCode);
+        var guessedPlayers = _scoreState.GetGuessedPlayers(roomCode);
+
+        var allPlayersExceptDrawer = _roomState.GetPlayersExceptDrawer(roomCode);
+
+        if (guess == correctWord)
+        {
+            _scoreState.PlayerGuessedCorrectly(roomCode, player);
+
+            guessedPlayers = _scoreState.GetGuessedPlayers(roomCode);
+
+            await Clients.Caller.SendAsync("CorrectGuess", correctWord);
+            await Clients.Group(roomCode).SendAsync("ReceiveMessage", "guessed correctly!", player, true, guessedPlayers);
+
+
+            bool allPlayersGuessed = guessedPlayers.OrderBy(x => x).SequenceEqual(allPlayersExceptDrawer.OrderBy(x => x)); ;
+
+            if (allPlayersGuessed)
+            {
+                await Clients.Group(roomCode).SendAsync("SystemMessage", "All Players Guessed Correctly!");
+                await Task.Delay(3000);
+                await NewPlayerToDraw(roomCode);
+            }
+        }
+        else if(guess != correctWord)
+        {
+            await Clients.Group(roomCode).SendAsync("ReceiveMessage", guess, player, false, guessedPlayers);
+        }
 
     }
 
+    public async Task ChosenWord(string roomCode, string chosenWord)
+    {
+        var currentPlayer = _roomState.GetCurrentPlayer(roomCode);
+
+        var connectionId = _roomState.GetConnectionId(roomCode, currentPlayer);
+
+        if(Context.ConnectionId != connectionId)
+        {
+            return;
+        }
+
+        _roomState.SetChosenWord(roomCode, chosenWord);
+
+        await Clients.Group(roomCode).SendAsync("StartDrawing");
+        await Clients.GroupExcept(roomCode, connectionId).SendAsync("WordLength", chosenWord.Length);
+        await Clients.Client(connectionId).SendAsync("ChosenWord", chosenWord);
+    }
+
+    public async Task NewPlayerToDraw(string roomCode)
+    {
+        var roundBefore = _roomState.GetCurrentRound(roomCode);
+        var (currentPlayer, round, word1, word2, word3) =  _roomState.GetAndAdvanceDrawer(roomCode);
+
+        //make new round function maybe
+
+        if(roundBefore != 0 && round > roundBefore)
+        {
+            await Clients.Group(roomCode).SendAsync("SystemMessage", "Round " + _roomState.GetCurrentRound(roomCode) + " starting soon!");
+            await Task.Delay(3000);
+        }
+
+        _scoreState.ClearPlayersGuessedCorrectly(roomCode);
+        if (currentPlayer != null)
+        {
+            var drawerConnectionId = _roomState.GetConnectionId(roomCode, currentPlayer);
+
+            _roomState.ClearDrawing(roomCode);
+            await Clients.Group(roomCode).SendAsync("NewPlayerToDraw", currentPlayer, round);
+            if(drawerConnectionId != null)
+            {
+                await Clients.Client(drawerConnectionId).SendAsync("ChooseWord", word1, word2, word3);
+            }
+        }
+    }
 
 
 

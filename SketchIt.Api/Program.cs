@@ -31,6 +31,8 @@ builder.Services.AddSignalR();
 
 builder.Services.AddScoped<RoomService>();
 builder.Services.AddSingleton<RoomState>();
+builder.Services.AddSingleton<ScoreState>();
+
 
 var app = builder.Build();
 
