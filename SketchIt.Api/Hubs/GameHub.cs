@@ -10,7 +10,6 @@ namespace SketchIt.Api.Hubs;
 public class GameHub: Hub
 {
     private readonly RoomState _roomState;
-
     private readonly ScoreState _scoreState;
     private readonly RoomService _roomService;
     private List<string> reservedRoomCodes = new();
